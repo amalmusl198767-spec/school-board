@@ -104,7 +104,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min
 .mpick{width:36px;height:36px;border-radius:9px;border:2px solid #EEE;background:#F9F9F9;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .mpick:hover{border-color:#ccc;background:#F0F0F0;}
 .mpick.sel{border-color:var(--orange);background:#FFF3E0;}
-.save-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--orange),var(--pink));border:none;border-radius:13px;color:white;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 12px rgba(255,107,53,0.3);transition:opacity 0.2s;}
+.save-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--orange),var(--pink));border:none;border-radius:13px;color:white;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 12px rgba(255,107,53,0.3);transition:opacity 0.2s;touch-action:manipulation;-webkit-appearance:none;position:relative;z-index:10;}
 .save-btn:hover{opacity:0.9;}
 
 /* RIGHT PANEL */
@@ -468,7 +468,7 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min
             <div class="mpick" data-m="🎖️" onclick="pm(this)">🎖️</div>
           </div>
           <textarea class="inp" id="f-desc" rows="2" placeholder="📝 تفاصيل (اختياري)" style="resize:none"></textarea>
-          <button class="save-btn" onclick="saveAch()">✨ أضف الإنجاز</button>
+          <button class="save-btn" onclick="saveAch()" style="cursor:pointer;-webkit-tap-highlight-color:transparent" ontouchend="saveAch()">✨ أضف الإنجاز</button>
         </div>
       </div>
     </aside>
@@ -1000,7 +1000,6 @@ let clockInt;
 function mkey(){return db.currentYear+'_'+db.currentMonth;}
 function mdata(){return db.months[mkey()]||[];}
 function load(){try{const r=localStorage.getItem('skb4');if(r)db={...db,...JSON.parse(r)};}catch(e){}}
-catch(e){}}
 
 // Stars
 function makeStars(){
@@ -1032,18 +1031,21 @@ function setFilter(el,cat){filter=cat;document.querySelectorAll('.ftab').forEach
 
 // Save achievement
 function saveAch(){
-  const s=document.getElementById('f-student').value.trim();
-  const t=document.getElementById('f-title').value.trim();
-  const c=document.getElementById('f-cat').value;
-  const d=document.getElementById('f-desc').value.trim();
-  const gradeEl=document.getElementById('f-grade');
-  const g=c==='devstudent'&&gradeEl?gradeEl.value:null;
-  if(!s||!t){alert('أدخلي اسم الطالبة وعنوان الإنجاز!');return;}
-  if(!db.months[mkey()])db.months[mkey()]=[];
-  db.months[mkey()].push({id:Date.now(),student:s,title:t,cat:c,grade:g,desc:d,medal:medal,date:new Date().toLocaleDateString('ar-SA')});
-  persist();
-  ['f-student','f-title','f-desc'].forEach(id=>document.getElementById(id).value='');
-  render();
+  try {
+    const s=document.getElementById('f-student').value.trim();
+    const t=document.getElementById('f-title').value.trim();
+    if(!s||!t){alert('أدخلي اسم الطالبة وعنوان الإنجاز!');return;}
+    const c=document.getElementById('f-cat').value;
+    const d=(document.getElementById('f-desc').value||'').trim();
+    const gradeEl=document.getElementById('f-grade');
+    const g=c==='devstudent'&&gradeEl?gradeEl.value:null;
+    const m = medal||'⭐';
+    if(!db.months[mkey()])db.months[mkey()]=[];
+    db.months[mkey()].push({id:Date.now(),student:s,title:t,cat:c,grade:g,desc:d,medal:m,date:new Date().toLocaleDateString('ar-SA')});
+    persist();
+    ['f-student','f-title','f-desc'].forEach(id=>{ const el=document.getElementById(id); if(el)el.value=''; });
+    render();
+  } catch(e) { alert('خطأ: '+e.message); }
 }
 
 // Delete
@@ -1352,11 +1354,22 @@ function persist(){
 }
 
 // INIT
-load();makeStars();
-document.getElementById('hdr-school').textContent=db.school;
-document.getElementById('ds-school').textContent=db.school;
-document.querySelector('.header').style.background=db.headerGradient;
-updateMonthLabel();render();
+window.onerror = function(msg, src, line, col, err) {
+  document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:99999;font-family:monospace;font-size:12px">JS Error: '+msg+' (line '+line+')</div>';
+  return false;
+};
+try {
+  load();
+  if(window.__PRELOAD__){ db = {...db, ...window.__PRELOAD__}; }
+  makeStars();
+  document.getElementById('hdr-school').textContent = db.school || 'مدرستنا';
+  document.getElementById('ds-school').textContent = db.school || 'مدرستنا';
+  document.querySelector('.header').style.background = db.headerGradient;
+  updateMonthLabel();
+  render();
+} catch(e) {
+  document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:99999;font-size:13px">خطأ في التحميل: '+e.message+'</div>';
+}
 </script>
 
 <button class="float-export" onclick="exportPage()"><span>📤</span> تصدير وشارك</button>
