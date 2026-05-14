@@ -1036,8 +1036,9 @@ function saveAch(){
   const t=document.getElementById('f-title').value.trim();
   const c=document.getElementById('f-cat').value;
   const d=document.getElementById('f-desc').value.trim();
-  const g=c==='devstudent'?document.getElementById('f-grade').value:null;
-  if(!s||!t){alert('👦 أدخل اسم الطالب وعنوان الإنجاز!');return;}
+  const gradeEl=document.getElementById('f-grade');
+  const g=c==='devstudent'&&gradeEl?gradeEl.value:null;
+  if(!s||!t){alert('أدخلي اسم الطالبة وعنوان الإنجاز!');return;}
   if(!db.months[mkey()])db.months[mkey()]=[];
   db.months[mkey()].push({id:Date.now(),student:s,title:t,cat:c,grade:g,desc:d,medal:medal,date:new Date().toLocaleDateString('ar-SA')});
   persist();
@@ -1314,24 +1315,25 @@ const API = window.location.origin;
 
 async function pushToServer(){
   try{
-    await fetch(API+'/api/data',{
+    const res = await fetch('/api/data',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(db)
     });
-    showToast('✅ تم الحفظ');
-  }catch(e){ showToast('❌ خطأ في الحفظ'); }
+    if(res.ok){ showToast('✅ تم الحفظ'); }
+    else { showToast('❌ خطأ: '+res.status); }
+  }catch(e){ showToast('❌ تعذّر الحفظ'); }
 }
 
 async function pullFromServer(){
   try{
-    const res = await fetch(API+'/api/data');
+    const res = await fetch('/api/data');
     const data = await res.json();
     if(data && Object.keys(data).length > 0){
       db = {...db, ...data};
       return true;
     }
-  }catch(e){}
+  }catch(e){ console.log('pull error',e); }
   return false;
 }
 
@@ -1346,7 +1348,7 @@ function showToast(msg){
 
 function persist(){
   try{localStorage.setItem('skb4',JSON.stringify(db));}catch(e){}
-  pushToServer();
+  pushToServer().catch(e=>console.log('push error',e));
 }
 
 // INIT
