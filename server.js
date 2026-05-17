@@ -1,35 +1,35 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { createClient } = require('redis');
 
-// Redis client
-let redisClient = null;
+const DATA_FILE = '/tmp/schoolboard_data.json';
 
-async function getRedis() {
-  if (redisClient) return redisClient;
-  const url = process.env.REDIS_URL;
-  if (!url) return null;
+function getData() {
   try {
-    redisClient = createClient({ url });
-    redisClient.on('error', err => console.log('Redis error:', err));
-    await redisClient.connect();
-    console.log('Redis connected!');
-    return redisClient;
+    if (fs.existsSync(DATA_FILE)) {
+      return fs.readFileSync(DATA_FILE, 'utf8');
+    }
+  } catch(e) {}
+  return '{}';
+}
+
+function saveData(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, data, 'utf8');
+    return true;
   } catch(e) {
-    console.log('Redis connection failed:', e.message);
-    return null;
+    console.log('Save error:', e);
+    return false;
   }
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
-  // Serve HTML
   if (req.method === 'GET' && req.url === '/') {
     const htmlFile = path.join(__dirname, 'index.html');
     if (fs.existsSync(htmlFile)) {
@@ -41,33 +41,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET data
   if (req.method === 'GET' && req.url === '/api/data') {
-    const redis = await getRedis();
-    if (redis) {
-      try {
-        const data = await redis.get('schoolboard');
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(data || '{}');
-        return;
-      } catch(e) { console.log('Redis get error:', e); }
-    }
     res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end('{}');
+    res.end(getData());
     return;
   }
 
-  // POST data
   if (req.method === 'POST' && req.url === '/api/data') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
+    req.on('end', () => {
       try {
         JSON.parse(body);
-        const redis = await getRedis();
-        if (redis) {
-          await redis.set('schoolboard', body);
-        }
+        saveData(body);
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.end('{"ok":true}');
       } catch(e) {
@@ -82,6 +68,3 @@ const server = http.createServer(async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log('Server running on port ' + PORT));
-
-// Connect Redis on startup
-getRedis();
