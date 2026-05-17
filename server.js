@@ -2,25 +2,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const DATA_FILE = '/tmp/schoolboard_data.json';
+const DATA_FILE = '/data/schoolboard_data.json';
 
-function getData() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      return fs.readFileSync(DATA_FILE, 'utf8');
-    }
-  } catch(e) {}
-  return '{}';
-}
+// Make sure /data directory exists
+try { fs.mkdirSync('/data', { recursive: true }); } catch(e) {}
 
-function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, data, 'utf8');
-    return true;
-  } catch(e) {
-    console.log('Save error:', e);
-    return false;
-  }
+// Initialize data file
+if (!fs.existsSync(DATA_FILE)) {
+  fs.writeFileSync(DATA_FILE, '{}');
 }
 
 const server = http.createServer((req, res) => {
@@ -42,8 +31,14 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && req.url === '/api/data') {
-    res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end(getData());
+    try {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      res.writeHead(200, {'Content-Type': 'application/json'});
+      res.end(data || '{}');
+    } catch(e) {
+      res.writeHead(200, {'Content-Type': 'application/json'});
+      res.end('{}');
+    }
     return;
   }
 
@@ -53,7 +48,7 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         JSON.parse(body);
-        saveData(body);
+        fs.writeFileSync(DATA_FILE, body, 'utf8');
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.end('{"ok":true}');
       } catch(e) {
